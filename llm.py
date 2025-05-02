@@ -1,11 +1,10 @@
-# Import necessary libraries
 import spacy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import logging
 
-
+# Set logging levels to suppress unnecessary warnings or errors from PyTorch
 logging.getLogger("torch").setLevel(logging.ERROR)
 logging.getLogger("torch.nn").setLevel(logging.ERROR)
 logging.getLogger("torch.nn.functional").setLevel(logging.ERROR)
@@ -60,4 +59,28 @@ attn = nn.MultiheadAttention(embed_dim = 16, num_heads = 2, batch_first = False)
 attention_of_training_dataset, weights = attn(word_embedding, word_embedding, word_embedding)
 
 # Initialize an embedding layer for the prompt tokens
-embedding_layer = nn_
+embedding_layer = nn.Embedding(num_embeddings = len(tokens_of_prompt), embedding_dim = 16)
+word_embedding = embedding_layer(tensor_of_prompt)
+
+# Create a MultiheadAttention layer to compute attention weights for the prompt
+attn = nn.MultiheadAttention(embed_dim = 16, num_heads = 2, batch_first = False)
+attention_of_prompt, weights = attn(word_embedding, word_embedding, word_embedding)
+
+# Apply softmax activation to the attention results to convert them into probabilities
+probs_of_training_dataset = F.softmax(attention_of_training_dataset, dim=-1)
+probs_of_prompt = F.softmax(attention_of_prompt, dim=-1)
+
+# Concatenate the probabilities from the prompt and the training dataset
+combined_probs = torch.cat((probs_of_prompt, probs_of_training_dataset), dim=-1)
+
+# Get the predicted token ID by taking the argmax of the combined probabilities
+predicted_token_id = torch.argmax(combined_probs, dim=-1)
+
+# Reverse the stoi mapping to convert the predicted token ID back to the token (word)
+reverse_stoi = {v: k for k, v in stoi_of_training_dataset.items()}
+
+# Retrieve the predicted token from the reverse mapping, defaulting to "Unknown" if not found
+predicted_token = reverse_stoi.get(predicted_token_id[0].item(), "Unknown")
+
+# Print the predicted next token
+print(f"Predicted next token: {predicted_token}")
